@@ -10,7 +10,7 @@ from io import BytesIO
 
 from .models import Connection
 from pysftp import Connection as SftpConnection
-from pysftp import CnOpts
+from pysftp import CnOpts, SSHException
 
 CNOPTS = CnOpts()
 CNOPTS.hostkeys = None
@@ -83,7 +83,8 @@ def add_connection(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
         try:
-            Connection.objects.get(user_id=request.user.id,  username=username, host=host)
+            Connection.objects.get(
+                user_id=request.user.id,  username=username, host=host)
             return HttpResponse('SFTP Connection already exist.')
         except Connection.DoesNotExist:
             pass
@@ -91,7 +92,7 @@ def add_connection(request):
             try:
                 SftpConnection(
                     host, username, password=password, cnopts=CNOPTS)
-            except Exception:
+            except NotADirectoryError:
                 return HttpResponse('SFTP Connection cant be established.')
             Connection.objects.create(
                 user=request.user,
@@ -126,7 +127,8 @@ def edit_connection(request, username, host):
             username = request.POST.get('username')
             conn.password = request.POST.get('password')
             try:
-                Connection.objects.get(user_id=request.user.id, username=username, host=host)
+                Connection.objects.get(
+                    user_id=request.user.id, username=username, host=host)
                 return HttpResponse('SFTP Connection already exist.')
             except Connection.DoesNotExist:
                 pass
@@ -156,14 +158,19 @@ def open_connection(request, username, host, current_dir):
                     conn.host, conn.username,
                     password=conn.password, cnopts=CNOPTS) as sftp_conn:
                 elms = sftp_conn.listdir_attr(current_dir)
-            folders = [(f"{current_dir}/{elm.filename}".replace('/', '^'), elm)
-                       for elm in elms if elm.st_size == 0 and not elm.filename.count('.')]
-            files = [(f"{current_dir}/{elm.filename}".replace('/', '^'), elm)
-                     for elm in elms if elm.st_size > 0 or elm.filename.count('.')]
-        except Exception as e:
-            raise e
+            folders = [
+                (f"{current_dir}/{elm.filename}".replace('/', '^'), elm)
+                for elm in elms
+                if elm.st_size == 0 and not elm.filename.count('.')]
+            files = [
+                (f"{current_dir}/{elm.filename}".replace('/', '^'), elm)
+                for elm in elms
+                if elm.st_size > 0 or elm.filename.count('.')]
+        except SSHException:
+            return HttpResponse('Can`t connect to remote server.')
         template = loader.get_template('file_manager/connections.html')
-        previous_dir = '.' if current_dir == '.' else current_dir[:current_dir.rfind('/')].replace('/', '^')
+        previous_dir = ('.' if current_dir == '.' else
+                        current_dir[:current_dir.rfind('/')].replace('/', '^'))
         context = {
             'files': files,
             'folders': folders,
@@ -179,13 +186,15 @@ def open_connection(request, username, host, current_dir):
 @login_required
 def get_file(request, username, host, path):
     path = path.replace("^", '/')
-    conn = Connection.objects.get(user_id=request.user.id, username=username, host=host)
+    conn = Connection.objects.get(
+        user_id=request.user.id, username=username, host=host)
     stream = BytesIO()
     with SftpConnection(
             conn.host, conn.username,
             password=conn.password, cnopts=CNOPTS) as sftp_conn:
         sftp_conn.getfo(path, stream)
     response = HttpResponse(content_type='application/octet-stream')
-    response['Content-Disposition'] = f'attachment; filename={path[path.rfind("/")+1:]}'
+    filename = path[path.rfind("/")+1:]
+    response['Content-Disposition'] = f'attachment; filename={filename}'
     response.write(stream.getvalue())
     return response
