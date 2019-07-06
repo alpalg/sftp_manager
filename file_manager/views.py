@@ -17,16 +17,24 @@ CNOPTS.hostkeys = None
 
 
 def index(request):
+    """
+    Used as main entry point. Propose of registration.
+    Redirect if you already logged in.
+    :param request: user enter on site.
+    :return: 'all_connections' if user authenticated else 'index' page.
+    """
     if request.user.is_authenticated:
         return redirect('all_connections')
-    template = loader.get_template('file_manager/index.html')
-    context = {
-        'connections': ()
-    }
-    return HttpResponse(template.render(context, request))
+    return render(request, 'file_manager/index.html')
 
 
 def user_login(request):
+    """
+    Logging a user if account exist and entered correct.
+    :param request: user want to log into account.
+    :return: 'login' page if user not logged and redirect to 'index' page
+    if user already logged in.
+    """
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -44,11 +52,21 @@ def user_login(request):
 
 
 def user_logout(request):
+    """
+    Logout and redirect to index page.
+    :param request: user want to logout from account.
+    :return: redirect to 'index' page.
+    """
     logout(request)
     return HttpResponseRedirect(reverse('index'))
 
 
 def register(request):
+    """
+    Register of new user.
+    :param request: user want ro create a new account.
+    :return: 'register' page.
+    """
     registered = False
     if request.method == 'POST':
         user_form = UserCreationForm(data=request.POST)
@@ -57,8 +75,6 @@ def register(request):
             user.set_password(user.password)
             user.save()
             registered = True
-        else:
-            print(user_form.errors)
     else:
         user_form = UserCreationForm()
     return render(request, 'file_manager/register.html',
@@ -68,6 +84,12 @@ def register(request):
 
 @login_required
 def all_connections(request):
+    """
+    Show all user connection.
+    :param request: user starts using SFTP file manager and user
+    logged in.
+    :return: 'connections' page.
+    """
     template = loader.get_template('file_manager/connections.html')
     context = {
         'connections': Connection.objects.filter(user_id=request.user.id)
@@ -77,6 +99,11 @@ def all_connections(request):
 
 @login_required
 def add_connection(request):
+    """
+    Create connection. Check connection already exist and valid.
+    :param request: user want to add a new SFTP connection.
+    :return: 'add_connection' page.
+    """
     if request.method == 'POST':
         connection_form = ConnectionForm(data=request.POST)
         host = request.POST.get('host')
@@ -100,8 +127,6 @@ def add_connection(request):
                 username=username,
                 password=password)
             return HttpResponseRedirect(reverse('index'))
-        else:
-            print(connection_form.errors)
     else:
         connection_form = ConnectionForm()
     return render(request, 'file_manager/add_connection.html',
@@ -110,6 +135,13 @@ def add_connection(request):
 
 @login_required
 def edit_connection(request, username, host):
+    """
+    Edit current connection.
+    :param request: user want to edit a SFTP connection.
+    :param username: username what used for sftp connection.
+    :param host: host what used for sftp connection.
+    :return: redirect to 'index' page or render 'edit_connection' page.
+    """
     conn = Connection.objects.get(
         user_id=request.user.id, username=username, host=host)
     if request.method != 'POST':
@@ -117,7 +149,6 @@ def edit_connection(request, username, host):
             connection_form = ConnectionForm(instance=conn)
             return render(request, 'file_manager/edit_connection.html',
                           {'connection_form': connection_form})
-
     else:
         connection_form = ConnectionForm(data=request.POST)
         if connection_form.is_valid():
@@ -133,14 +164,18 @@ def edit_connection(request, username, host):
             except Connection.DoesNotExist:
                 pass
             conn.save()
-            return HttpResponseRedirect(reverse('index'))
-        else:
-            print(connection_form.errors)
         return HttpResponseRedirect(reverse('index'))
 
 
 @login_required
 def delete_connection(request, username, host):
+    """
+    Delete connection and redirect to index.
+    :param request: user want to delete a SFTP connection.
+    :param username: username what used for sftp connection.
+    :param host: host what used for sftp connection.
+    :return: 'index' page/
+    """
     conn = Connection.objects.get(
         user_id=request.user.id, username=username, host=host)
     conn.delete()
@@ -149,6 +184,17 @@ def delete_connection(request, username, host):
 
 @login_required
 def open_connection(request, username, host, current_dir):
+    """
+    Used to work with all connections. Create connect and retrieve needed data.
+    Connection wasn't saved because need to create connection management
+    system bases on session. I think it out of this project.
+    :param request: user want open a SFTP connection, or walk dawn to file
+        system tree.
+    :param username: username what used for sftp connection.
+    :param host: host what used for sftp connection.
+    :param current_dir: dir where user currently working.
+    :return: 'connection' page.
+    """
     current_dir = current_dir.replace("^", '/')
     conn = Connection.objects.get(
         user_id=request.user.id, username=username, host=host)
@@ -185,6 +231,14 @@ def open_connection(request, username, host, current_dir):
 
 @login_required
 def get_file(request, username, host, path):
+    """
+    Download file from via sftp server.
+    :param request: user want to download a some file from SFTP server.
+    :param username: username what used for sftp connection.
+    :param host: host what used for sftp connection.
+    :param path: full file path.
+    :return: downloaded file.
+    """
     path = path.replace("^", '/')
     conn = Connection.objects.get(
         user_id=request.user.id, username=username, host=host)

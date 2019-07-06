@@ -1,11 +1,13 @@
 from django.db import models
-from django import forms
 from django.contrib.auth.models import User
 
 # Create your models here.
 
 
 class Connection(models.Model):
+    """
+    Describe connection to SFTP server.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     host = models.CharField(max_length=30)
     username = models.CharField(max_length=20)
