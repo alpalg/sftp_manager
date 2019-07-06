@@ -1,0 +1,73 @@
+{% extends "file_manager/base.html" %}
+{% block body_block %}
+
+<div class="row">
+    <div class="col-3">
+          <h2>Connections:</h2>
+            {% if connections %}
+            <ul class="list-group">
+                {% for conn in connections %}
+                    {% if conn.id == flagged_connection.id %}
+                        <li class="list-group-item list-group-item-success">
+
+                    {% else %}
+                        <li class="list-group-item">
+                    {% endif %}
+                            <a href="{% url 'open_connection' username=conn.username host=conn.host current_dir='.'%}">{{ conn }}</a>
+                            <a href="{% url 'edit_connection' username=conn.username host=conn.host %}"><i class="material-icons">edit</i></a>
+                            <a href="{% url 'delete_connection' username=conn.username host=conn.host %}"><i class="material-icons">delete_forever</i></a>
+                        </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                <p>No polls are available.</p>
+            {% endif %}
+            <ul class="list-group">
+                <li class="list-group-item">
+                    <a href="{% url 'add_connection' %}">
+                        Add new connection <i class="material-icons">add_circle</i>
+                    </a>
+                </li>
+            </ul>
+    </div>
+    <div class="col-9 overflow-hidden">
+        <h3>{{ current_directory }}</h3>
+        {% if flagged_connection %}
+            <a href="{% url 'open_connection' username=flagged_connection.username host=flagged_connection.host current_dir=previous_dir %}"><h3>...</h3></a>
+        {% endif %}
+        <ul class="list-group">
+            {% if folders or files %}
+                {% if folders %}
+                    {% for path, folder in folders %}
+                        <li class="list-group-item list-group-item-primary">
+                            <a href="{% url 'open_connection' username=flagged_connection.username host=flagged_connection.host current_dir=path %}">
+                            <span>
+                                <i class="material-icons">folder_open</i>
+                                <span>{{ folder.filename }}</span>
+                            </span>
+                            </a>
+                        </li>
+
+                    {% endfor %}
+                {% endif %}
+                {% if files %}
+                    {% for path, file in files %}
+                        <li class="list-group-item">
+                            <a href="{% url 'get_file' username=flagged_connection.username host=flagged_connection.host path=path %}">
+                                <span><i class="material-icons">note</i></span>
+                                <span>{{ file.filename }}</span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+        </ul>
+
+    </div>
+</div>
+
+{% endblock %}
+
+
+
+
